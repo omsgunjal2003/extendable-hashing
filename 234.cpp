@@ -2,344 +2,279 @@
 
 using namespace std;
 
-// ===========================THE BUCKET CLASS================================
-class Bucket
-{
+class bnode{
     public:
-        Bucket();
-        Bucket(int local_depth,int bucket_size);
-        virtual ~Bucket();
-        void display();
-        int localDepth;
-        int capacity;
-        multiset<int> values;
-        multiset<int> getValues();
-        void incrementLocalDepth();
-        int creationTime;
-    protected:
-
-    private:
-
+        vector<long long int> v;
+        long long int data_node;
+        vector<bnode *> vptr;
+        long long int num_values;
+        bnode * par;
 };
 
-Bucket::Bucket()
-{
-    //ctor
-}
-
-Bucket::Bucket(int local_depth, int bucket_size)
-{
-    localDepth = local_depth;
-    capacity = bucket_size;
-}
-
-multiset<int> Bucket::getValues(){
-    return values;
-}
-
-void Bucket::display(){
-    for(auto i : this->getValues()){
-        cout << i << " " ;
-    }
-    cout << endl;
-}
-
-void Bucket::incrementLocalDepth(){
-    localDepth++;
-}
-
-Bucket::~Bucket()
-{
-    //dtor
-}
-
-// ===========================THE DIRECTORY CLASS================================
-
-class Directory
-{
-    public:
-        Directory();
-        Directory(int,int);
-        virtual ~Directory();
-        int getGlobalDepth();
-        void setGlobalDepth(int);
-        int currBuckets;
-        map<int,Bucket*> buckets;
-        vector<Bucket*> vec;
-        vector<int> vec1;
-        int calculateHash(int,int);
-        void rearrangeBucketElements(Bucket);
-        void insertElement(int);
-        void displayBuckets();
-        int handleFull(int);
-        bool search_(int);
-        void deleteElement(int);
-        void deleteAdvanced(int);
-        void displayVec();
-        int currTime;
-
-    protected:
-
-    private:
-        int globalDepth;
-        int bucketSize;
-};
-
-Directory::Directory()
-{
-    //ctor
-}
-
-Directory::Directory(int global_depth,int bucket_capacity)
-{
-    currTime = 0;
-    globalDepth=global_depth;
-    bucketSize = bucket_capacity;
-    for(int i=0;i<(1<<globalDepth);i++){
-        Bucket * b = new Bucket(global_depth,bucket_capacity) ;
-        b->creationTime = currTime++;
-        buckets[i] = b;
-        vec.push_back(b);
-        vec1.push_back(i);
-//        buckets.push_back(b);
-    //    cout << "the bucket " << i <<  " has time " << buckets[i]->creationTime << " " << buckets[i]->localDepth << endl;
-    }
-}
-
-int Directory::getGlobalDepth(){
-    return globalDepth;
-}
-
-void Directory::setGlobalDepth(int n){
-    globalDepth=n;
-}
-
-int Directory::calculateHash(int val, int depth){
-    return val&((1<<depth)-1);
-}
-
-void Directory::insertElement(int val){
-    int hashValue = calculateHash(val,globalDepth);
-    cout << "inserting " << val << " " << hashValue  << endl;
-    if(buckets[hashValue]->values.size()<bucketSize){
-        buckets[hashValue]->values.insert(val);
-        return;
-    }
-
-    // if the local depth is less than global depth
-    if(buckets[hashValue]->localDepth < globalDepth){
-        cout << "case 1 " << endl;
-        int local_depth = buckets[hashValue]->localDepth;
-        Bucket *A = new Bucket(local_depth+1,bucketSize);
-        A->creationTime = currTime++;
-        buckets[hashValue]->incrementLocalDepth();
-        for(int i : buckets[hashValue]->getValues()){
-            if(calculateHash(i,local_depth+1)!=hashValue){
-                cout << "erasing " << i << " " << hashValue << endl;
-                buckets[hashValue]->values.erase(i);
-                A->values.insert(i);
-            }
-        }
-        vec.push_back(A);
-        for(int i : A->getValues()){
-            cout << i << " " ;
-        }
-        cout << endl;
-        int tmp;
-        if(hashValue+(1<<local_depth)<(1<<globalDepth))
-        {
-            tmp = hashValue + (1<<local_depth);
-        }else{
-            tmp = hashValue - (1<<local_depth);
-        }
-        // for(int i=0;i<(1<<globalDepth);i++){
-        //     if(calculateHash(i,globalDepth)!=hashValue)continue;
-        //     if(calculateHash(i,local_depth+1)==hashValue){
-        //         cout << "assigning A to " << i << endl;
-        //         buckets[i] = A;
-        //     }else if(calculateHash(i,local_depth+1)==tmp){
-        //         buckets[i] = buckets[hashValue];
-        //     }
-        // }
-        vec1.push_back((1<<local_depth)+hashValue);
-        for(int i=tmp;i<(1<<globalDepth);i+=(1<<(local_depth+1))){
-            buckets[i] = A;
-        }
-        for(int i=tmp;i>=0;i-=(1<<(local_depth+1))){
-            buckets[i] = A;
-        }
-        // for(int i=hashValue;i<(1<<globalDepth);i+=(1<<(local_depth+1))){
-        //     buckets[i] = A;
-        // }
-        // for(int i=hashValue;i>=0;i-=(1<<(local_depth+1))){
-        //     buckets[i]=A;
-        // }
-    }
-    else{
-        // doubling the directory
-        globalDepth++;
-        int newHash = hashValue+(1<<(globalDepth-1));
-        for(int i=(1<<(globalDepth-1));i<(1<<globalDepth);i++){
-            if(i!=newHash){
-                buckets[i] = buckets[i%(1<<(globalDepth-1))];
-            }
-        }
-        // split this bucket into two
-        Bucket *nH = new Bucket(globalDepth,bucketSize);
-        nH->creationTime = currTime++;
-        Bucket *hV = new Bucket(globalDepth,bucketSize);
-        hV->creationTime = vec[hashValue]->creationTime;
-        for(auto i : buckets[hashValue]->getValues()){
-            if(calculateHash(i,globalDepth)!=hashValue){
-                nH->values.insert(i);
-            }else{
-                hV->values.insert(i);
-            }
-        }
-        vec[hashValue]=hV;
-        vec.push_back(nH);
-        vec1.push_back(newHash);
-        buckets[hashValue]=hV;
-        buckets[newHash]=nH;
-    }
-    // if(buckets[calculateHash(val,globalDepth)]->values.size()<bucketSize){
-    //     buckets[calculateHash(val,globalDepth)]->values.insert(val);
-    //     return;
-    // }
-    insertElement(val);
-}
-
-void Directory::displayBuckets(){
-    cout << "global depth " << globalDepth<< endl; 
-    for(int i=0;i<(1<<globalDepth);i++){
-        cout << i << " : " ;
-        for(auto j : buckets[i]->getValues()){
-            cout << j << " " ;
-        }
-        cout << " local depth " << buckets[i]->localDepth << endl;
-    }
-}
-
-bool Directory::search_(int val){
-    int hashValue=calculateHash(val,globalDepth);
-    for(auto i : buckets[hashValue]->values){
-        cout << "checking " << i << endl;
-        if(i==val){
-            return true;
-        }
-    }
-    return false;
-}
-
-void Directory::deleteElement(int val){
-    if(search_(val)){
-        int hashValue = calculateHash(val,globalDepth);
-        buckets[hashValue]->values.erase(buckets[hashValue]->values.find(val));
-        cout << "deleting " << val << endl;
-    }else{
-        cout << "the value " << val << " is not present "<< calculateHash(val,globalDepth) << endl;
-    }
-}
-
-void Directory::deleteAdvanced(int val){
-    if(search_(val)){
-        int hashValue = calculateHash(val,globalDepth);
-        deleteElement(val);
-        if(buckets[hashValue]->values.size()==0){
-            int ld = buckets[hashValue]->localDepth;
-            if(ld<=1)return;
-            if(hashValue<(1<<(globalDepth-1))){
-                buckets[hashValue] = buckets[hashValue+(1<<(globalDepth-1))];
-            }else{
-                buckets[hashValue] = buckets[hashValue-(1<<(globalDepth-1))];
-            }
-            buckets[hashValue]->localDepth--;
-        }
-        // check if the directory can be halved
-        for(int i=0;i<(1<<(globalDepth-1));i++){
-            if(buckets[i]!=buckets[i+(1<<(globalDepth-1))])
-            {
-                return;
-            }
-        }
-        // now we can halve the directory
-        globalDepth--;
-    }
-}
-
-void Directory::displayVec(){
-    // for(int i=0;i<vec.size();i++){
-    //     for(int j=i;j<vec.size();j++){
-    //         if(buckets[j]->creationTime < buckets[i]->creationTime){
-    //             swap(buckets[i],buckets[j]);
-    //         }
-    //     }
-    // }
-    cout << globalDepth << endl << vec.size() << endl;
-    // for(int i=0;i<vec.size();i++){
-    //     cout << vec[i]->getValues().size() << " " << vec[i]->localDepth << " " << vec[i]->creationTime << endl;
-    //     for(int j : vec[i]->getValues()){
-    //         cout << j << " ";
-    //     }
-    //     cout << endl;
-    // }
-    for(int i=0;i<vec1.size();i++){
-        cout << vec1[i] << " " <<  buckets[vec1[i]]->getValues().size() << " " << buckets[vec1[i]]->localDepth << endl;
-        for(auto j : buckets[vec1[i]]->getValues()){
-            cout << j << " " ;
-        }
-        cout << endl;
-    }
-}
-
-Directory::~Directory()
-{
-    //dtor
-}
-
-// ===========================THE MAIN PROGRAM================================
 int main()
 {
-
-    int globalDepth,bucket_cap;
-    cin >> globalDepth >> bucket_cap;
-    Directory dir(globalDepth,bucket_cap);
-
-    int currOp;
-    while(cin >> currOp){
-        switch(currOp){
-            int number;
-            case 1 : {
-                dir.displayBuckets();
-                break;
+    bnode* root=nullptr;
+    long long int i;
+    long long int d,t;
+    long long int k;
+    cin >> d;
+    cin >> t;
+    long long int x;
+    long long int m;
+    bnode* mptr;
+    long long int val;
+    long long int ndata,nindex;
+    ndata=0;
+    nindex=0;
+    vector<long long int> tmp;
+    vector<bnode *> tmpptr;
+    x=2;
+    while(x==1 || x==2){
+        cin >> x;
+        if(x==1){
+            cin >> val;
+            if(nindex==0){
+                if(ndata==0){
+                    bnode* bnode_var=new bnode;
+                    root=bnode_var;
+                    (root->v).push_back(val);
+                    ndata++;
+                    root->data_node=1;
+                    root->num_values=1;
+                    root->par=nullptr;
+                }
+                else{
+                    if(root->num_values<2*d){
+                        (root->v).push_back(val);
+                        root->num_values++;
+                    }
+                    else{
+                        (root->v).push_back(val);
+                        root->num_values++;
+                        sort((root->v).begin(),(root->v).end());
+                        for(i=0;i<=d;i++){
+                            tmp.push_back((root->v)[d+i]);
+                        }
+                        for(i=0;i<=d;i++){
+                            (root->v).pop_back();
+                        }
+                        root->num_values=d;
+                        bnode* bnode_var=new bnode;
+                        root->par=bnode_var;
+                        (bnode_var->vptr).push_back(root);
+                        root=bnode_var;
+                        root->par=nullptr;
+                        nindex++;
+                        root->data_node=0;
+                        bnode* bnode_var2=new bnode;
+                        bnode_var2->data_node=1;
+                        ndata++;
+                        (root->vptr).push_back(bnode_var2);
+                        k=tmp[0];
+                        for(i=0;i<=d;i++){
+                            (bnode_var2->v).push_back(tmp[i]);
+                        }
+                        tmp.clear();
+                        bnode_var2->num_values=d+1;
+                        bnode_var2->par=root;
+                        (root->v).push_back(k);
+                        root->num_values=1;
+                    }
+                }
             }
-            case 2 : {
-                cin >> number;
-                dir.insertElement(number);
-                break;
+            else{
+                bnode* bnode_var=root;
+                while(bnode_var->data_node!=1){
+                    if(val<(bnode_var->v)[0]){
+                        bnode_var=(bnode_var->vptr)[0];
+                    }
+                    else if(val>(bnode_var->v)[(bnode_var->v).size()-1]){
+                        bnode_var=(bnode_var->vptr)[(bnode_var->v).size()];
+                    }
+                    else{
+                        for(auto j=0;j<(bnode_var->v).size()-1;j++){
+                            if(val>(bnode_var->v)[j] && val<(bnode_var->v)[j+1]){
+                                bnode_var=(bnode_var->vptr)[j+1];
+                            }
+                        }
+                    }
+                }
+                if(bnode_var->num_values<2*d){
+                    (bnode_var->v).push_back(val);
+                    (bnode_var->num_values)++;
+                }
+                else{
+                    (bnode_var->v).push_back(val);
+                    sort((bnode_var->v).begin(),(bnode_var->v).end());
+                    for(i=d;i<=2*d;i++){
+                        tmp.push_back((bnode_var->v)[i]);
+                    }
+                    for(i=d;i<=2*d;i++){
+                        (bnode_var->v).pop_back();
+                    }
+                    bnode_var->num_values=d;
+                    k=tmp[0];
+                    bnode* bnode_var2=new bnode;
+                    ndata++;
+                    bnode_var2->data_node=1;
+                    for(i=0;i<=d;i++){
+                        (bnode_var2->v).push_back(tmp[i]);
+                    }
+                    tmp.clear();
+                    bnode_var2->num_values=d+1;
+                    bnode_var2->par=bnode_var->par;
+                    while(bnode_var!=root && (bnode_var->par)->num_values==2*t+1){
+                        if(k<((bnode_var->par)->v)[0]){
+                            m=((bnode_var->par)->v)[((bnode_var->par)->v).size()-1];
+                            for(i=((bnode_var->par)->v).size()-1;i>0;i--){
+                                ((bnode_var->par)->v)[i]=((bnode_var->par)->v)[i-1];
+                            }
+                            ((bnode_var->par)->v)[0]=k;
+                            ((bnode_var->par)->num_values)++;
+                            ((bnode_var->par)->v).push_back(m);
+                            mptr=((bnode_var->par)->vptr)[((bnode_var->par)->vptr).size()-1];
+                            for(i=((bnode_var->par)->vptr).size()-1;i>1;i--){
+                                ((bnode_var->par)->vptr)[i]=((bnode_var->par)->vptr)[i-1];
+                            }
+                            ((bnode_var->par)->vptr)[1]=bnode_var2;
+                            ((bnode_var->par)->vptr).push_back(mptr);
+                        }
+                        else if(k>((bnode_var->par)->v)[((bnode_var->par)->v).size()-1]){
+                            ((bnode_var->par)->v).push_back(k);
+                            ((bnode_var->par)->num_values)++;
+                            ((bnode_var->par)->vptr).push_back(bnode_var2);
+                        }
+                        else{
+                            for(auto j=0;j<((bnode_var->par)->v).size()-1;j++){
+                                if(k>((bnode_var->par)->v)[j] && k<((bnode_var->par)->v)[j+1]){
+                                    //((bnode_var->par)->num_values)++;
+                                    m=((bnode_var->par)->v)[((bnode_var->par)->v).size()-1];
+                                    for(i=((bnode_var->par)->v).size()-1;i>j+1;i--){
+                                        ((bnode_var->par)->v)[i]=((bnode_var->par)->v)[i-1];
+                                    }
+                                    ((bnode_var->par)->v)[j+1]=k;
+                                    ((bnode_var->par)->num_values)++;
+                                    ((bnode_var->par)->v).push_back(m);
+                                    mptr=((bnode_var->par)->vptr)[((bnode_var->par)->vptr).size()-1];
+                                    for(i=((bnode_var->par)->vptr).size()-1;i>j+2;i--){
+                                        ((bnode_var->par)->vptr)[i]=((bnode_var->par)->vptr)[i-1];
+                                    }
+                                    ((bnode_var->par)->vptr)[j+2]=bnode_var2;
+                                    ((bnode_var->par)->vptr).push_back(mptr);
+                                }
+                            }
+                        }
+                        //cout << "broke" << endl;
+                        bnode* bnode_var3=new bnode;
+                        k=((bnode_var->par)->v)[t];
+                        bnode_var3->data_node=0;
+                        nindex++;
+                        bnode_var3->num_values=t+1;
+                        (bnode_var->par)->num_values=t;
+                        for(i=t+1;i<=2*t + 1;i++){
+                            tmp.push_back(((bnode_var->par)->v)[i]);
+                        }
+                        for(i=t;i<=2*t + 1;i++){
+                            ((bnode_var->par)->v).pop_back();
+                        }
+                        for(i=0;i<=t;i++){
+                            (bnode_var3->v).push_back(tmp[i]);
+                        }
+                        tmp.clear();
+                        //cout << "broke" << endl;
+                        for(i=t+1;i<=2*t + 2;i++){
+                            tmpptr.push_back(((bnode_var->par)->vptr)[i]);
+                        }
+                        for(i=t+1;i<=2*t + 2;i++){
+                            ((bnode_var->par)->vptr).pop_back();
+                        }
+                        for(i=0;i<=t+1;i++){
+                            (bnode_var3->vptr).push_back(tmpptr[i]);
+                        }
+                        tmpptr.clear();
+                        //cout << "broke" << endl;
+                        bnode_var3->par=(bnode_var->par)->par;
+                        for(i=0;i<=t;i++){
+                            (((bnode_var->par)->vptr)[i])->par=bnode_var->par;
+                        }
+                        bnode_var=(bnode_var)->par;
+                        for(i=0;i<=t+1;i++){
+                            ((bnode_var3->vptr)[i])->par=bnode_var3;
+                        }
+                        //cout << "broke" << endl;
+                        bnode_var2=bnode_var3;
+                        //cout << "broke" << endl;
+                    }
+                    if(bnode_var==root){
+                        bnode* bnode_var4=new bnode;
+                        //cout << "broke" << endl;
+                        nindex++;
+                        bnode_var4->num_values=1;
+                        (bnode_var4->v).push_back(k);
+                        bnode_var4->data_node=0;
+                        bnode_var4->par=nullptr;
+                        bnode_var4->vptr.push_back(bnode_var);
+                        bnode_var4->vptr.push_back(bnode_var2);
+                        bnode_var->par=bnode_var4;
+                        bnode_var2->par=bnode_var4;
+                        root=bnode_var4;
+                    }
+                    else{
+                        if(k<((bnode_var->par)->v)[0]){
+                            m=((bnode_var->par)->v)[((bnode_var->par)->v).size()-1];
+                            for(i=((bnode_var->par)->v).size()-1;i>0;i--){
+                                ((bnode_var->par)->v)[i]=((bnode_var->par)->v)[i-1];
+                            }
+                            ((bnode_var->par)->v)[0]=k;
+                            ((bnode_var->par)->num_values)++;
+                            ((bnode_var->par)->v).push_back(m);
+                            mptr=((bnode_var->par)->vptr)[((bnode_var->par)->vptr).size()-1];
+                            for(i=((bnode_var->par)->vptr).size()-1;i>1;i--){
+                                ((bnode_var->par)->vptr)[i]=((bnode_var->par)->vptr)[i-1];
+                            }
+                            ((bnode_var->par)->vptr)[1]=bnode_var2;
+                            ((bnode_var->par)->vptr).push_back(mptr);
+                        }
+                        else if(k>((bnode_var->par)->v)[((bnode_var->par)->v).size()-1]){
+                            ((bnode_var->par)->v).push_back(k);
+                            ((bnode_var->par)->num_values)++;
+                            ((bnode_var->par)->vptr).push_back(bnode_var2);
+                        }
+                        else{
+                            for(auto j=0;j<((bnode_var->par)->v).size()-1;j++){
+                                if(k>((bnode_var->par)->v)[j] && k<((bnode_var->par)->v)[j+1]){
+                                    //((bnode_var->par)->num_values)++;
+                                    m=((bnode_var->par)->v)[((bnode_var->par)->v).size()-1];
+                                    for(i=((bnode_var->par)->v).size()-1;i>j+1;i--){
+                                        ((bnode_var->par)->v)[i]=((bnode_var->par)->v)[i-1];
+                                    }
+                                    ((bnode_var->par)->v)[j+1]=k;
+                                    ((bnode_var->par)->num_values)++;
+                                    ((bnode_var->par)->v).push_back(m);
+                                    mptr=((bnode_var->par)->vptr)[((bnode_var->par)->vptr).size()-1];
+                                    for(i=((bnode_var->par)->vptr).size()-1;i>j+2;i--){
+                                        ((bnode_var->par)->vptr)[i]=((bnode_var->par)->vptr)[i-1];
+                                    }
+                                    ((bnode_var->par)->vptr)[j+2]=bnode_var2;
+                                    ((bnode_var->par)->vptr).push_back(mptr);
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            case 3: {
-                cin >> number;
-                if(dir.search_(number)){
-                    // cout << number << " is present" << endl;
-                }else{
-                    // cout << number << " is absent" << endl;
-                };
-                break;
+        }
+        if(x==2){
+            cout << nindex << " " << ndata << " ";
+            if(root!=nullptr){
+                if(root->data_node==1){
+                    sort((root->v).begin(),(root->v).end());
+                }
+                for(auto j=(root->v).begin();j<(root->v).end();j++){
+                    cout << *j << " ";
+                }
             }
-            case 4: {
-                cin >> number;
-                dir.deleteElement(number);
-                // dir.deleteAdvanced(number);
-                break;
-            }
-            case 5:{
-                dir.displayVec();
-                break;
-            }
-            case 6: {
-                return 0;
-            }
+            cout << endl;
         }
     }
     return 0;
